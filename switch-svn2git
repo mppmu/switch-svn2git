@@ -1,0 +1,122 @@
+#!/bin/bash -e
+
+# Copyright (C) 2014 Oliver Schulz <oliver.schulz@tu-dortmund.de>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+
+EXEC_NAME=`basename "$0"`
+GIT_BASE_PATH="$1"
+
+if [ -z "${GIT_BASE_PATH}" ]  ; then
+	echo "Syntax: ${EXEC_NAME} GIT_BASE_PATH" 1>&2;
+	echo "" 1>&2
+	echo "Turns an SVN working copy into a Git clone of the same project. Local changes" 1>&2
+	echo "will be preserved. Current Revision is matched by branch and time stamp." 1>&2
+	echo "" 1>&2
+	echo "This tool assumes that the SVN repository URL of your current checkout has the" 1>&2
+	echo "format BASE_URL/PROJECT/trunk or BASE_URL/PROJECT/branches/BRANCH." 1>&2
+	echo "" 1>&2
+	echo "Warning: While this program has been implemented with care, it comes WITHOUT" 1>&2
+	echo "ANY WARRANTY. It is recommended that you make a backup of your SVN working" 1>&2
+	echo "copy first!" 1>&2
+	echo "" 1>&2
+	echo "Examples:" 1>&2
+	echo "    ${EXEC_NAME} git@github.com:GITHUB_USER" 1>&2
+	echo "    ${EXEC_NAME} https://github.com/GITHUB_USER" 1>&2
+	exit 1
+fi
+
+if ! svn info &> /dev/null ; then
+	echo "ERROR: Not in an SVN checkout" 1>&2;
+	exit 1
+fi
+
+if [ -d "../.svn" ] ; then
+	echo "ERROR: Not in top-level directory of SVN checkout" 1>&2;
+	exit 1
+fi
+
+SVN_URL=`svn info --xml | grep '<url>' | sed 's|</\?url>||g'`
+echo "SVN URL: ${SVN_URL}"
+
+SVN_REVISION=`svnversion .`
+echo "SVN checkout revision: r${SVN_REVISION}"
+
+SVN_COMMIT_DATE=`svn info --xml | grep '<date>' | sed 's|</\?date>||g'`
+echo "SVN checkout revision date: ${SVN_COMMIT_DATE}"
+
+SVN_PRJ_BRANCH=`echo "${SVN_URL}" | sed 's%\(.\+\)/\([^/]\+\)/\(\(trunk\)\|branches/\([^/]\+\)\)%\2@\5%'`
+if [ "${SVN_URL}" = "${SVN_BRANCH}" ]  ; then
+	echo "ERROR: Unsuitable SVN URL, expected BASE_URL/PROJECT/trunk or BASE_URL/PROJECT/branches/BRANCH" 1>&2;
+	exit 1
+fi
+
+PROJECT=`echo "${SVN_PRJ_BRANCH}" | cut -d '@' -f 1`
+SVN_BRANCH=`echo "${SVN_PRJ_BRANCH:-}" | cut -d '@' -f 2`
+
+echo "Project name: ${PROJECT}"
+echo "SVN Branch: ${SVN_BRANCH:-None (trunk)}"
+
+GIT_REMOTE="${GIT_BASE_PATH}/${PROJECT}.git"
+echo "Git remote repo: ${GIT_REMOTE}"
+
+GIT_BRANCH="${SVN_BRANCH:-master}"
+echo "GIT Branch: ${GIT_BRANCH}"
+
+TMP_GIT_CLONE=`mktemp -u -d "gitclone-${PROJECT}-XXXXXX"`
+echo "Creating temporary Git clone in: ${TMP_GIT_CLONE}"
+git clone "${GIT_REMOTE}" "${TMP_GIT_CLONE}"
+
+SVN_PWD=`pwd`
+cd "${TMP_GIT_CLONE}"
+
+git checkout "${GIT_BRANCH}"
+
+GIT_NMATCHES=`git log "${GIT_BRANCH}" --since="${SVN_COMMIT_DATE}" --until="${SVN_COMMIT_DATE}" | grep '^commit ' | wc -l`
+if [ "${GIT_NMATCHES}" == 0 ]; then
+	echo "ERROR: Found no matching git commits" 1>&2;
+	exit 1
+elif [ "${GIT_NMATCHES}" == 1 ]; then
+	echo "Found 1 matching Git commit."
+else
+	echo "WARNING: Found more than one matching Git commit (by timestamp), will use latest one." 1>&2;
+fi
+
+GIT_HASH=`git log "${GIT_BRANCH}" --since="${SVN_COMMIT_DATE}" --until="${SVN_COMMIT_DATE}" | grep '^commit ' | sed 's/^commit\s//' | head -n1`
+echo "Git revision: ${GIT_HASH}"
+git reset "${GIT_HASH}" > /dev/null
+if [ "`git rev-parse HEAD`" != "${GIT_HASH}" ] ; then
+	echo "ERROR: Failed to reset git branch ${GIT_BRANCH} to revision ${GIT_HASH}" 1>&2
+fi
+
+cd "${SVN_PWD}"
+
+echo "Replacing .svn sub-directories by .git"
+
+if [ -d ".svn" ] ; then
+	find . -depth -type d -name ".svn" -exec rm -rf "{}" \;
+	mv "${TMP_GIT_CLONE}/.git" .
+	rm -rf "${TMP_GIT_CLONE}"
+else
+	echo "ERROR: No .svn sub-directory - this should not happen, please report" 1>&2;
+	exit 1
+fi
+
+# Restore .gitattributes and .gitignore (shouldn't have been in SVN)
+git checkout -- `git ls-files | grep '.gitattributes$\|.gitignore$'` > /dev/null
+git diff > /dev/null
+
+echo "Successfully turned SVN checkout of ${PROJECT} into a Git clone."
