@@ -18,10 +18,10 @@
 
 
 EXEC_NAME=`basename "$0"`
-GIT_BASE_PATH="$1"
+GIT_BASE_URL="$1"
 
-if [ -z "${GIT_BASE_PATH}" ]  ; then
-	echo "Syntax: ${EXEC_NAME} GIT_BASE_PATH" 1>&2;
+if [ -z "${GIT_BASE_URL}" ]  ; then
+	echo "Syntax: ${EXEC_NAME} GIT_BASE_URL" 1>&2;
 	echo "" 1>&2
 	echo "Turns an SVN working copy into a Git clone of the same project. Local changes" 1>&2
 	echo "will be preserved. Current Revision is matched by branch and time stamp." 1>&2
@@ -70,7 +70,7 @@ SVN_BRANCH=`echo "${SVN_PRJ_BRANCH:-}" | cut -d '@' -f 2`
 echo "Project name: ${PROJECT}"
 echo "SVN Branch: ${SVN_BRANCH:-None (trunk)}"
 
-GIT_REMOTE="${GIT_BASE_PATH}/${PROJECT}.git"
+GIT_REMOTE="${GIT_BASE_URL}/${PROJECT}.git"
 echo "Git remote repo: ${GIT_REMOTE}"
 
 GIT_BRANCH="${SVN_BRANCH:-master}"
