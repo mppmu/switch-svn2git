@@ -18,12 +18,15 @@ format BASE_URL/PROJECT/trunk or BASE_URL/PROJECT/branches/BRANCH.
 Revisions are matched by time stamp, in cases where the time stamp is not
 unique, a warning will be given and the latest time stamp will be used.
 
+This package also includes a tool `switch-git2git` that makes it easy to
+change the remote URL (of remote "origin") of a Git repository.
+
 
 Installation
 ------------
 
-Just copy the shell-script `switch-svn2git` into a directory on your `PATH`,
-or add the switch-svn2git to your `PATH`.
+Just copy the shell-scripts `switch-svn2git` and `switch-git2git` into a
+directory on your `PATH`, or add the switch-svn2git to your `PATH`.
 
 
 Usage
@@ -44,10 +47,17 @@ Assuming your SVN URL was
 
 switch-svn2git will then try turn your working copy into a Git clone of, e.g.,
 
-    # git@github.com:GITHUB_USER/my-project
+    # git@github.com:GITHUB_USER/my-project.git
 
 For a short online help, just run `switch-svn2git` without arguments.
 
 Warning: While this program has been implemented with care, it comes WITHOUT
 ANY WARRANTY. It is recommended that you make a backup of your SVN working copy
 first!
+
+If you later want to change change change the origin (the remote server) URL of
+your new Git clone, use `switch-git2git`. For example, to switch your origin URL
+from `https://github.com/GITHUB_USER/my-project.git` to
+`git@github.com:GITHUB_USER/my-project.git`, simply run
+
+    # switch-git2git git@github.com:GITHUB_USER
