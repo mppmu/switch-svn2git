@@ -35,7 +35,7 @@ if [ -z "${GIT_BASE_PATH}" ]  ; then
 fi
 
 if ! git remote &> /dev/null ; then
-	echo "ERROR: Not in an SVN checkout" 1>&2;
+	echo "ERROR: Not in an Git clone" 1>&2;
 	exit 1
 fi
 
